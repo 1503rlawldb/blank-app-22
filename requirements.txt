@@ -1,1 +1,8 @@
 streamlit
+folium
+pandas
+numpy
+plotly
+earthengine-api
+geemap
+google-auth

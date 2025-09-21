@@ -40,29 +40,11 @@ def initialize_ee():
         st.stop()
 
 # -------------------------
-# Helper / 투발루 그래프용 데이터
-# -------------------------
-@st.cache_data
-def generate_tuvalu_graph_data():
-    rng = np.random.RandomState(42)
-    rows = []
-    years = list(range(1990, 2051, 5))
-    base, trend = 0.05, 0.008
-    for year in years:
-        years_from0 = year - min(years)
-        sea = float(np.round(base + trend * years_from0 + rng.normal(scale=0.01), 3))
-        rows.append({"country": "투발루", "year": year, "sea_level_m": max(0.0, sea)})
-    return pd.DataFrame(rows)
-
-df_tuvalu_graph = generate_tuvalu_graph_data()
-
-# -------------------------
 # 사이드바: 사용자 입력
 # -------------------------
 st.sidebar.title("🔧 설정")
 st.sidebar.markdown("연도를 선택하면 지도가 실시간으로 갱신됩니다.")
 sel_year = st.sidebar.slider("연도 선택", min_value=2025, max_value=2100, value=2050, step=5)
-show_tuvalu = st.sidebar.checkbox("투발루 상세 보기", value=True)
 
 # -------------------------
 # 메인 화면 구성
@@ -148,17 +130,6 @@ st.markdown(
     "- **기술적 대응**: 방파제 및 자연 기반 해안 방어(맹그로브·갯벌 복원) 병행.  \n"
     "- **교육적 대응**: 청소년 대상 기후 교육 강화와 지역 캠페인 활성화."
 )
-st.markdown("----")
-st.header("투발루 상세 사례 (그래프)")
-if show_tuvalu:
-    # 투발루 연도별 그래프 (실제 데이터 아님—시뮬레이션)
-    fig_tuv = px.line(df_tuvalu_graph, x="year", y="sea_level_m", markers=True, title="투발루 연도별 해수면 상승 (시뮬레이션)")
-    fig_tuv.update_yaxes(title_text="해수면 상승 (m)")
-    st.plotly_chart(fig_tuv, use_container_width=True)
-    st.markdown(
-        "설명: 위 그래프는 교육용 시뮬레이션으로, 연도에 따른 해수면 상승 추이를 보여줍니다. "
-        "실제 투발루의 피해사례(식수 오염, 농지 침수, 이주 압력 등)는 이미 보고되고 있습니다."
-    )
 
 # -------------------------
 # 하단: 실천 체크리스트
