@@ -40,11 +40,31 @@ def initialize_ee():
         st.stop()
 
 # -------------------------
+# Helper / 국가별 좌표 데이터
+# -------------------------
+COUNTRY_COORDS = {
+    "대한민국": [35.9, 127.7],
+    "투발루": [-7.1095, 177.6493],
+    "방글라데시": [23.6850, 90.3563],
+    "네덜란드": [52.1326, 5.2913],
+    "베트남": [14.0583, 108.2772],
+    "몰디브": [3.2028, 73.2207],
+    "일본": [36.2048, 138.2529],
+    "필리핀": [12.8797, 121.7740],
+    "미국": [37.0902, -95.7129],
+    "이집트": [26.8206, 30.8025],
+    "인도네시아": [-0.7893, 113.9213]
+}
+
+
+# -------------------------
 # 사이드바: 사용자 입력
 # -------------------------
 st.sidebar.title("🔧 설정")
-st.sidebar.markdown("연도를 선택하면 지도가 실시간으로 갱신됩니다.")
+st.sidebar.markdown("연도와 국가를 선택하면 지도가 실시간으로 갱신됩니다.")
 sel_year = st.sidebar.slider("연도 선택", min_value=2025, max_value=2100, value=2050, step=5)
+country_name = st.sidebar.text_input("나라 이름 검색", placeholder="예: 대한민국, 투발루, 네덜란드")
+
 
 # -------------------------
 # 메인 화면 구성
@@ -62,6 +82,20 @@ POPULATION = ee.ImageCollection('WorldPop/GP/100m/pop').filterDate('2020').mean(
 
 sea_level_rise = (sel_year - 2025) / 75 * 0.8
 
+# 지도 중심 좌표와 줌 레벨 설정
+map_center = [20, 0]
+map_zoom = 2
+
+if country_name:
+    normalized_name = country_name.strip()
+    if normalized_name in COUNTRY_COORDS:
+        map_center = COUNTRY_COORDS[normalized_name]
+        map_zoom = 6 # 검색된 국가에 맞게 줌인
+        st.sidebar.success(f"'{normalized_name}'(으)로 이동합니다.")
+    else:
+        st.sidebar.warning(f"'{normalized_name}'을(를) 찾을 수 없습니다. 전체 지도를 표시합니다.")
+
+
 with st.spinner("지도 데이터를 계산하고 있습니다..."):
     flooded_mask_global = DEM.lte(sea_level_rise).selfMask()
     affected_population_heatmap = POPULATION.updateMask(flooded_mask_global)
@@ -72,7 +106,8 @@ with st.spinner("지도 데이터를 계산하고 있습니다..."):
         'palette': ['orange', 'red', 'darkred']
     }
     
-    m = geemap.Map(center=[20, 0], zoom=2)
+    # 설정된 좌표와 줌 레벨로 지도 생성
+    m = geemap.Map(center=map_center, zoom=map_zoom)
     m.add_basemap('SATELLITE')
     
     map_id_dict = affected_population_heatmap.getMapId(heatmap_vis_params)
