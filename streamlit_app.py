@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 import streamlit as st
-import folium # type: ignore
+import folium
 import pandas as pd
 import numpy as np
-import plotly.express as px # type: ignore
-import ee # type: ignore
-import geemap.foliumap as geemap # type: ignore
+import plotly.express as px
+import ee
+import geemap.foliumap as geemap
 import json
 import os
-from google.oauth2 import service_account # type: ignore
+from google.oauth2 import service_account
 
 # -------------------- 페이지 설정 --------------------
 st.set_page_config(page_title="물러서는 땅, 다가오는 바다 — 해수면 상승 대시보드", layout="wide", page_icon="🌊")
@@ -40,24 +40,21 @@ def initialize_ee():
         st.stop()
 
 # -------------------------
-# Helper / 통계 그래프용 데이터 생성 (시뮬레이션)
+# Helper / 투발루 그래프용 데이터
 # -------------------------
 @st.cache_data
-def generate_affected_countries_data():
-    countries = ["방글라데시", "네덜란드", "베트남", "이집트", "인도네시아", "필리핀", "피지", "몰디브", "기타 연안국"]
-    # 인구 또는 면적 피해 예상 비율을 시뮬레이션
-    np.random.seed(42)
-    values = np.random.rand(len(countries) - 1) * 15 + 5 # 5% ~ 20% 사이
-    values = np.append(values, 100 - np.sum(values)) # 기타 연안국이 나머지를 차지
-    values = np.round(values / np.sum(values) * 100, 1) # 총합 100%로 정규화
-    
-    df = pd.DataFrame({
-        "나라": countries,
-        "예상 피해 인구 비율 (%)": values
-    })
-    return df
+def generate_tuvalu_graph_data():
+    rng = np.random.RandomState(42)
+    rows = []
+    years = list(range(1990, 2051, 5))
+    base, trend = 0.05, 0.008
+    for year in years:
+        years_from0 = year - min(years)
+        sea = float(np.round(base + trend * years_from0 + rng.normal(scale=0.01), 3))
+        rows.append({"country": "투발루", "year": year, "sea_level_m": max(0.0, sea)})
+    return pd.DataFrame(rows)
 
-df_affected_countries = generate_affected_countries_data()
+df_tuvalu_graph = generate_tuvalu_graph_data()
 
 # -------------------------
 # 사이드바: 사용자 입력
@@ -65,6 +62,7 @@ df_affected_countries = generate_affected_countries_data()
 st.sidebar.title("🔧 설정")
 st.sidebar.markdown("연도를 선택하면 지도가 실시간으로 갱신됩니다.")
 sel_year = st.sidebar.slider("연도 선택", min_value=2025, max_value=2100, value=2050, step=5)
+show_tuvalu = st.sidebar.checkbox("투발루 상세 보기", value=True)
 
 # -------------------------
 # 메인 화면 구성
@@ -150,18 +148,17 @@ st.markdown(
     "- **기술적 대응**: 방파제 및 자연 기반 해안 방어(맹그로브·갯벌 복원) 병행.  \n"
     "- **교육적 대응**: 청소년 대상 기후 교육 강화와 지역 캠페인 활성화."
 )
-
-st.markdown("---")
-st.header("🌍 해수면 상승으로 인한 피해 예상 국가 (시뮬레이션)")
-st.markdown("아래 원 그래프는 해수면 상승으로 인해 상대적으로 더 큰 피해를 볼 것으로 예상되는 국가들의 '예상 피해 인구 비율'을 시뮬레이션한 것입니다. 이는 실제 데이터가 아닌 교육적 목적의 가상 데이터입니다.")
-fig_pie = px.pie(df_affected_countries, 
-                 values="예상 피해 인구 비율 (%)", 
-                 names="나라", 
-                 title="주요 피해 예상 국가별 인구 피해 비율",
-                 hole=0.3) # 도넛 형태로 만들기
-fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-st.plotly_chart(fig_pie, use_container_width=True)
-st.markdown("---")
+st.markdown("----")
+st.header("투발루 상세 사례 (그래프)")
+if show_tuvalu:
+    # 투발루 연도별 그래프 (실제 데이터 아님—시뮬레이션)
+    fig_tuv = px.line(df_tuvalu_graph, x="year", y="sea_level_m", markers=True, title="투발루 연도별 해수면 상승 (시뮬레이션)")
+    fig_tuv.update_yaxes(title_text="해수면 상승 (m)")
+    st.plotly_chart(fig_tuv, use_container_width=True)
+    st.markdown(
+        "설명: 위 그래프는 교육용 시뮬레이션으로, 연도에 따른 해수면 상승 추이를 보여줍니다. "
+        "실제 투발루의 피해사례(식수 오염, 농지 침수, 이주 압력 등)는 이미 보고되고 있습니다."
+    )
 
 # -------------------------
 # 하단: 실천 체크리스트
