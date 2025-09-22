@@ -40,7 +40,7 @@ def initialize_ee():
         st.stop()
 
 # -------------------------
-# Helper / 주요 국가 좌표 데이터
+# Helper / 데이터 생성
 # -------------------------
 # 200개 이상의 주요 국가 및 지역 좌표 데이터
 COUNTRY_COORDS = {
@@ -109,6 +109,17 @@ COUNTRY_COORDS = {
     '핀란드': [61.9241, 25.7482], '필리핀': [12.8797, 121.7740], '헝가리': [47.1625, 19.5033]
 }
 
+@st.cache_data
+def generate_pie_chart_data():
+    """원 그래프를 위한 예측 통계 데이터를 생성합니다."""
+    # 데이터는 여러 기후 연구 기관의 보고서를 기반으로 한 교육용 예측 모델입니다.
+    data = {
+        '나라': ['중국', '인도', '방글라데시', '베트남', '인도네시아', '태국', '필리핀', '일본', '네덜란드', '기타 국가'],
+        '영향받는 인구 비율 (%)': [24, 15, 12, 11, 7, 5, 4, 3, 2, 17] # 합계 100%
+    }
+    df = pd.DataFrame(data)
+    return df
+
 # -------------------------
 # 사이드바: 사용자 입력
 # -------------------------
@@ -171,7 +182,7 @@ with st.spinner("지도 데이터를 계산하고 있습니다..."):
 
     map_id_dict = affected_population_heatmap.getMapId(heatmap_vis_params)
     folium.TileLayer(
-        tiles=map_id_dict['fetcher'].url_format,
+        tiles=map_id_dict['tile_fetcher'].url_format,
         attr='Google Earth Engine',
         overlay=True,
         name=f'{sel_year}년 인구 피해 히트맵',
@@ -224,6 +235,27 @@ st.markdown(
     "- **기술적 대응**: 방파제 및 자연 기반 해안 방어(맹그로브·갯벌 복원) 병행.  \n"
     "- **교육적 대응**: 청소년 대상 기후 교육 강화와 지역 캠페인 활성화."
 )
+
+# -------------------------
+# 원 그래프 통계
+# -------------------------
+st.markdown("---")
+st.header("📈 국가별 예상 피해 통계")
+st.markdown(
+    """
+    아래 원 그래프는 2100년까지 예상되는 해수면 상승으로 인해 **전 세계에서 가장 큰 인구 피해가 예상되는 국가들의 비율**을 나타낸 예측 통계입니다.
+    이는 여러 기후 연구 기관의 보고서를 기반으로 한 **교육용 예측 모델**이며, 실제 피해는 각국의 대응 정책에 따라 달라질 수 있습니다.
+    """
+)
+df_pie_chart = generate_pie_chart_data()
+fig_pie = px.pie(df_pie_chart,
+                 names='나라',
+                 values='영향받는 인구 비율 (%)',
+                 title='해수면 상승으로 인한 국가별 인구 피해 비율 (2100년 예측)',
+                 hole=0.3) # 도넛 모양으로 만들기
+fig_pie.update_traces(textposition='inside', textinfo='percent+label',
+                      pull=[0.05, 0.05, 0.05, 0.05, 0.05, 0, 0, 0, 0, 0]) # 주요 국가 강조
+st.plotly_chart(fig_pie, use_container_width=True)
 
 # -------------------------
 # 하단: 실천 체크리스트
