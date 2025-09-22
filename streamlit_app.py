@@ -18,8 +18,8 @@ st.set_page_config(page_title="물러서는 땅, 다가오는 바다 — 해수�
 def initialize_ee():
     try:
         creds_dict = None
-        if hasattr(st, 'secrets') and st.secrets.get("g.json"):
-            creds_dict = st.secrets["g.json"]
+        if hasattr(st, 'secrets') and st.secrets.get("gcp_service_account"):
+            creds_dict = st.secrets["gcp_service_account"]
         else:
             secret_value = os.environ.get('GEE_JSON_KEY')
             if secret_value:
@@ -116,9 +116,8 @@ st.sidebar.title("🔧 설정")
 st.sidebar.markdown("연도와 국가를 선택하면 지도가 실시간으로 갱신됩니다.")
 sel_year = st.sidebar.slider("연도 선택", min_value=2025, max_value=2100, value=2050, step=5)
 
-# 국가 선택 UI (드롭다운)
-country_list = ["-- 전체 지도 보기 --"] + sorted(list(COUNTRY_COORDS.keys()))
-selected_country = st.sidebar.selectbox("나라 선택", options=country_list)
+# 국가 검색 UI (텍스트 입력)
+country_name = st.sidebar.text_input("나라 이름 검색", placeholder="예: 대한민국, 이집트, 브라질")
 
 
 # -------------------------
@@ -137,13 +136,24 @@ POPULATION = ee.ImageCollection('WorldPop/GP/100m/pop').filterDate('2020').mean(
 
 sea_level_rise = (sel_year - 2025) / 75 * 0.8
 
-# 지도 중심 좌표와 줌 레벨 설정
-map_center = [20, 0]
-map_zoom = 2
+# 지도 중심 좌표와 줌 레벨을 session_state로 관리하여 검색 상태 유지
+if 'map_center' not in st.session_state:
+    st.session_state.map_center = [20, 0]
+    st.session_state.map_zoom = 2
 
-if selected_country != "-- 전체 지도 보기 --":
-    map_center = COUNTRY_COORDS[selected_country]
-    map_zoom = 6 # 선택된 국가에 맞게 줌인
+# 국가 검색 로직
+if country_name:
+    normalized_name = country_name.strip()
+    if normalized_name in COUNTRY_COORDS:
+        # 검색어가 목록에 있으면 지도 좌표를 업데이트
+        st.session_state.map_center = COUNTRY_COORDS[normalized_name]
+        st.session_state.map_zoom = 6
+    # 검색어가 목록에 없으면, 마지막 검색 상태를 유지 (지도를 움직이지 않음)
+else:
+    # 검색어가 비어 있으면 전체 지도로 리셋
+    st.session_state.map_center = [20, 0]
+    st.session_state.map_zoom = 2
+
 
 with st.spinner("지도 데이터를 계산하고 있습니다..."):
     flooded_mask_global = DEM.lte(sea_level_rise).selfMask()
@@ -155,13 +165,13 @@ with st.spinner("지도 데이터를 계산하고 있습니다..."):
         'palette': ['orange', 'red', 'darkred']
     }
 
-    # 설정된 좌표와 줌 레벨로 지도 생성
-    m = geemap.Map(center=map_center, zoom=map_zoom)
+    # session_state에 저장된 좌표와 줌 레벨로 지도 생성
+    m = geemap.Map(center=st.session_state.map_center, zoom=st.session_state.map_zoom)
     m.add_basemap('SATELLITE')
 
     map_id_dict = affected_population_heatmap.getMapId(heatmap_vis_params)
     folium.TileLayer(
-        tiles=map_id_dict['tile_fetcher'].url_format,
+        tiles=map_id_dict['fetcher'].url_format,
         attr='Google Earth Engine',
         overlay=True,
         name=f'{sel_year}년 인구 피해 히트맵',
